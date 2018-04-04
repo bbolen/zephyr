@@ -1,0 +1,8 @@
+identifier: generic_r4_board
+name: GENERIC-R4-BOARD
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gccarmemb
+ram: 20

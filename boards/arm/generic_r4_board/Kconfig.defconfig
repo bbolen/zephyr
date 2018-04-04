@@ -1,0 +1,13 @@
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+if BOARD_GENERIC_R4_BOARD
+
+config BOARD
+	default "generic_r4_board"
+
+config BUILD_OUTPUT_STRIPPED
+	def_bool y
+
+endif
