@@ -1,0 +1,6 @@
+config SOC_R4SOC
+	bool "R4Soc"
+	select CPU_CORTEX_R4
+	select GIC
+	select MULTI_LEVEL_INTERRUPTS
+	select 2ND_LEVEL_INTERRUPTS

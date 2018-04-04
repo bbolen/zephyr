@@ -1,0 +1,32 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "armv7-r.dtsi"
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	soc {
+		interrupt-parent = <&gic>;
+
+		gic: interrupt-controller@d1d81000  {
+			compatible = "arm,gic";
+			reg = <0xd1d81000 0x1000>,
+					<0xd1d82000 0x100>;
+			interrupt-controller;
+			#interrupt-cells = <3>;
+			interrupt-parent = <&core_intc 0>;
+			label = "GIC";
+			status = "okay";
+		};
+
+		uart0: uart@d4030000 {
+			compatible = "ns16550";
+			reg = <0xd4030000 0x400>;
+			reg-shift = <2>;
+			status = "disabled";
+			interrupts = <16 0xa0 IRQ_TYPE_LEVEL>;
+			label = "UART_0";
+		};
+	};
+};
