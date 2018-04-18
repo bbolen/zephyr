@@ -158,6 +158,14 @@ config DW_ICTL_INIT_PRIORITY
 	help
 	  DesignWare Interrupt Controller initialization priority.
 
+config GIC
+	bool "ARM Generic Interrupt Controller (GIC)"
+	default n
+	depends on CPU_CORTEX_R
+	help
+	  The ARM Generic Interrupt Controller works with Cortex-A and
+	  Cortex-R processors.
+
 source "drivers/interrupt_controller/Kconfig.stm32"
 
 source "drivers/interrupt_controller/Kconfig.multilevel"
