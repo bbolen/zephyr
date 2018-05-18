@@ -2,7 +2,6 @@ zephyr_library()
 
 zephyr_library_sources(
   exc_exit.S
-  irq_init.c
   swap.c
   swap_helper.S
   fault.c

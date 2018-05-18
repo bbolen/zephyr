@@ -8,4 +8,5 @@ zephyr_library_sources(
   scb.c
   nmi.c
   exc_manage.c
+  irq_init.c
   )
