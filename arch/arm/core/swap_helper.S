@@ -110,7 +110,7 @@ SECTION_FUNC(TEXT, __pendsv)
     /* _kernel is still in r1 */
 
     /* fetch the thread to run from the ready queue cache */
-    ldr r2, [r1, _kernel_offset_to_ready_q_cache]
+    ldr r2, [r1, #_kernel_offset_to_ready_q_cache]
 
     str r2, [r1, #_kernel_offset_to_current]
 
