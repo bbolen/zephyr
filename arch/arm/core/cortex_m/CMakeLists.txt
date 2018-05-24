@@ -9,4 +9,5 @@ zephyr_library_sources(
   nmi.c
   exc_manage.c
   irq_init.c
+  thread_abort.c
   )
