@@ -4,7 +4,6 @@ zephyr_library_sources(
   exc_exit.S
   swap.c
   swap_helper.S
-  fault.c
   irq_manage.c
   thread.c
   cpu_idle.S
