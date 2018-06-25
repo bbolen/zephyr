@@ -1,0 +1,13 @@
+/*
+ * Copyright (c) 2018 Lexmark International, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <kernel.h>
+
+K_THREAD_STACK_DEFINE(_fiq_stack,   CONFIG_ARMV7_FIQ_STACK_SIZE);
+K_THREAD_STACK_DEFINE(_abort_stack, CONFIG_ARMV7_EXCEPTION_STACK_SIZE);
+K_THREAD_STACK_DEFINE(_undef_stack, CONFIG_ARMV7_EXCEPTION_STACK_SIZE);
+K_THREAD_STACK_DEFINE(_svc_stack,   CONFIG_ARMV7_SVC_STACK_SIZE);
+K_THREAD_STACK_DEFINE(_sys_stack,   CONFIG_ARMV7_SYS_STACK_SIZE);

@@ -34,6 +34,8 @@
 #ifdef CONFIG_CPU_CORTEX_M
 #include <arch/arm/cortex_m/cpu.h>
 #include <arch/arm/cortex_m/memory_map.h>
+#elif defined(CONFIG_CPU_CORTEX_R)
+#include <arch/arm/cortex_r/cpu.h>
 #endif
 
 #ifdef __cplusplus
@@ -257,7 +259,10 @@ extern "C" {
 #ifdef CONFIG_USERSPACE
 #ifdef CONFIG_CPU_HAS_ARM_MPU
 #ifndef _ASMLANGUAGE
+#if defined(CONFIG_CPU_CORTEX_M)
 #include <arch/arm/cortex_m/mpu/arm_mpu.h>
+#endif
+
 #endif /* _ASMLANGUAGE */
 #define _ARCH_MEM_PARTITION_ALIGN_CHECK(start, size) \
 	BUILD_ASSERT_MSG(!(((size) & ((size) - 1))) && (size) >= 32 && \

@@ -83,8 +83,10 @@ void _new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	pInitCtx->pc = (u32_t)_thread_entry;
 #endif
 
+#if defined(CONFIG_CPU_CORTEX_M)
 	/* force ARM mode by clearing LSB of address */
 	pInitCtx->pc &= 0xfffffffe;
+#endif
 
 	pInitCtx->a1 = (u32_t)pEntry;
 	pInitCtx->a2 = (u32_t)parameter1;
@@ -94,6 +96,11 @@ void _new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 		0x01000000UL; /* clear all, thumb bit is 1, even if RO */
 
 	thread->callee_saved.psp = (u32_t)pInitCtx;
+#if defined(CONFIG_CPU_CORTEX_R)
+	pInitCtx->lr = (u32_t)pInitCtx->pc;
+	thread->callee_saved.spsr = A_BIT | T_BIT | MODE_SYS;
+	thread->callee_saved.lr = (u32_t)pInitCtx->pc;
+#endif
 	thread->arch.basepri = 0;
 
 #if CONFIG_USERSPACE

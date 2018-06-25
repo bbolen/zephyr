@@ -61,6 +61,11 @@ SECTION_FUNC(TEXT, __pendsv)
 #elif defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE)
     movs.n r0, #_EXC_IRQ_DEFAULT_PRIO
     msr BASEPRI, r0
+#elif defined(CONFIG_ARMV7_R)
+    /*
+     * Interrupts are still disabled from __swap so empty clause
+     * here to avoid the preprocessor error below
+     */
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -74,7 +79,9 @@ SECTION_FUNC(TEXT, __pendsv)
     add r0, r2
 
     /* save callee-saved + psp in thread */
+#if defined(CONFIG_CPU_CORTEX_M)
     mrs ip, PSP
+#endif
 
 #if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
     /* Store current r4-r7 */
@@ -93,6 +100,10 @@ SECTION_FUNC(TEXT, __pendsv)
     add r0, r2, #_thread_offset_to_preempt_float
     vstmia r0, {s16-s31}
 #endif /* CONFIG_FP_SHARING */
+#elif defined(CONFIG_ARMV7_R)
+    /* Store rest of process context */
+    mrs r12, SPSR
+    stm r0, {r4-r12,sp,lr}^
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -104,8 +115,10 @@ SECTION_FUNC(TEXT, __pendsv)
      * to pend PendSV have been taken with the current kernel
      * state and this is what we're handling currently.
      */
+#if defined(CONFIG_CPU_CORTEX_M)
     ldr v4, =_SCS_ICSR
     ldr v3, =_SCS_ICSR_UNPENDSV
+#endif
 
     /* _kernel is still in r1 */
 
@@ -124,7 +137,9 @@ SECTION_FUNC(TEXT, __pendsv)
      */
 
     /* _SCS_ICSR is still in v4 and _SCS_ICSR_UNPENDSV in v3 */
+#if defined(CONFIG_CPU_CORTEX_M)
     str v3, [v4, #0]
+#endif
 
     /* Restore previous interrupt disable state (irq_lock key) */
 #if (defined(CONFIG_CPU_CORTEX_M0PLUS) || defined(CONFIG_CPU_CORTEX_M0)) && \
@@ -141,7 +156,7 @@ SECTION_FUNC(TEXT, __pendsv)
     str r3, [r4]
 #else
     ldr r0, [r2, #_thread_offset_to_basepri]
-    movs.n r3, #0
+    movs r3, #0
     str r3, [r2, #_thread_offset_to_basepri]
 #endif
 
@@ -219,6 +234,19 @@ _thread_irq_disabled:
     /* load callee-saved + psp from thread */
     add r0, r2, #_thread_offset_to_callee_saved
     ldmia r0, {v1-v8, ip}
+#elif defined(CONFIG_ARMV7_R)
+_thread_irq_disabled:
+    /* load _kernel into r1 and current k_thread into r2 */
+    ldr r1, =_kernel
+    ldr r2, [r1, #_kernel_offset_to_current]
+
+    /* addr of callee-saved regs in thread in r0 */
+    ldr r0, =_thread_offset_to_callee_saved
+    add r0, r2
+
+    /* restore r4-r12 for incoming thread, plus system sp and lr */
+    ldm r0, {r4-r12,sp,lr}^
+    msr SPSR, r12
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -231,7 +259,9 @@ _thread_irq_disabled:
     pop {r3}
 #endif
 
+#if defined(CONFIG_CPU_CORTEX_M)
     msr PSP, ip
+#endif
 
 #ifdef CONFIG_BUILTIN_STACK_GUARD
     /* r2 contains k_thread */
@@ -431,7 +461,80 @@ valid_syscall_id:
     bx lr
 #endif
 
+#elif defined(CONFIG_ARMV7_R)
+SECTION_FUNC(TEXT, __svc)
+    /*
+     * Switch to system mode to store r0-r3 to the process stack pointer.
+     * Save r12 and the lr as we will be swapping in another process and
+     * returning to a different location.
+     */
+    push {r4, r5}
+    mov r4, r12
+    mov r5, lr
+
+    cps #MODE_SYS
+    stmdb sp!, {r0-r5}
+    cps #MODE_SVC
+
+    pop {r4, r5}
+
+    /* Get SVC number */
+    mrs r0, spsr
+    tst r0, #0x20
+
+    ldreq r1, [lr, #-4]
+    biceq r1, #0xff000000
+    beq demux
+
+    ldr r1, [lr, #-2]
+    bic r1, #0xff00
+
+   /*
+    * grab service call number:
+    * 0: context switch
+    * 1: irq_offload (if configured)
+    * 2: kernel panic or oops (software generated fatal exception)
+    * Planned implementation of system calls for memory protection will
+    * expand this case.
+    */
+demux:
+    cmp r1, #_SVC_CALL_CONTEXT_SWITCH
+    beq _context_switch
+
+    cmp r1, #_SVC_CALL_RUNTIME_EXCEPT
+    beq _oops
+
+#if CONFIG_IRQ_OFFLOAD
+    push {lr}
+    blx _irq_do_offload  /* call C routine which executes the offload */
+    pop {lr}
+
+    /* exception return is done in _IntExit() */
+    mov r0, #RET_FROM_SVC
+    b _IntExit
+#endif
+
+_context_switch:
+    /* handler mode exit, to PendSV */
+    push {lr}
+    bl __pendsv
+    pop {lr}
+
+    mov r0, #RET_FROM_SVC
+    b _IntExit
+
+_oops:
+    push {lr}
+    blx _do_kernel_oops
+    pop {lr}
+    cpsie i
+    movs pc, lr
+
+GTEXT(cortex_r_svc)
+SECTION_FUNC(TEXT, cortex_r_svc)
+    svc #0
+    bx lr
+
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
-

@@ -65,6 +65,8 @@ extern void _SysFatalErrorHandler(unsigned int reason, const NANO_ESF *esf);
 		: "memory"); \
 	CODE_UNREACHABLE; \
 } while (false)
+#elif defined(CONFIG_ARMV7_R)
+#define _ARCH_EXCEPT(reason_p)	CODE_UNREACHABLE
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */

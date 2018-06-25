@@ -30,6 +30,10 @@ GTEXT(__usage_fault)
 GTEXT(__secure_fault)
 #endif /* CONFIG_ARM_SECURE_FIRMWARE*/
 GTEXT(__debug_monitor)
+#elif defined(CONFIG_ARMV7_R)
+GTEXT(__undef_instruction)
+GTEXT(__prefetch_abort)
+GTEXT(__data_abort)
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -70,6 +74,10 @@ SECTION_SUBSEC_FUNC(TEXT,__fault,__usage_fault)
 SECTION_SUBSEC_FUNC(TEXT,__fault,__secure_fault)
 #endif /* CONFIG_ARM_SECURE_FIRMWARE */
 SECTION_SUBSEC_FUNC(TEXT,__fault,__debug_monitor)
+#elif defined(CONFIG_ARMV7_R)
+SECTION_SUBSEC_FUNC(TEXT,__fault,__undef_instruction)
+SECTION_SUBSEC_FUNC(TEXT,__fault,__prefetch_abort)
+SECTION_SUBSEC_FUNC(TEXT,__fault,__data_abort)
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -125,6 +133,7 @@ _s_stack_frame_msp:
 	mrs r0, MSP
 _s_stack_frame_endif:
 #endif /* CONFIG_ARM_SECURE_FIRMWARE */
+#elif defined(CONFIG_ARMV7_R)
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -142,6 +151,11 @@ _s_stack_frame_endif:
 	push {lr}
 	bl _Fault
 
+#if defined(CONFIG_CPU_CORTEX_M)
 	pop {pc}
+#elif defined(CONFIG_CPU_CORTEX_R)
+	pop {lr}
+	subs pc, lr, #8
+#endif
 
 	.end

@@ -23,6 +23,7 @@ _ASM_FILE_PROLOGUE
 
 GTEXT(_ExcExit)
 GTEXT(_IntExit)
+GTEXT(__pendsv)
 GDATA(_kernel)
 
 /**
@@ -66,6 +67,9 @@ SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _IntExit)
  */
 
 SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _ExcExit)
+#if defined(CONFIG_CPU_CORTEX_R)
+    push {r0}
+#endif
 
 #ifdef CONFIG_PREEMPT_ENABLED
     ldr r0, =_kernel
@@ -76,10 +80,16 @@ SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _ExcExit)
     cmp r0, r1
     beq _EXIT_EXC
 
+#if defined(CONFIG_CPU_CORTEX_M)
     /* context switch required, pend the PendSV exception */
     ldr r1, =_SCS_ICSR
     ldr r2, =_SCS_ICSR_PENDSV
     str r2, [r1]
+#elif defined(CONFIG_CPU_CORTEX_R)
+    push {lr}
+    bl __pendsv
+    pop {lr}
+#endif
 
 _ExcExitWithGdbStub:
 
@@ -97,4 +107,32 @@ _EXIT_EXC:
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
 #endif /* CONFIG_STACK_SENTINEL */
 
+#if defined(CONFIG_CPU_CORTEX_M)
     bx lr
+#elif defined(CONFIG_CPU_CORTEX_R)
+    /*
+     * r0-r3 are either the values from the thread before it was switched out
+     * or they are the args to _new_thread for a new thread
+     */
+    pop {r0}
+    push {r4, r5}
+
+    cmp r0, #RET_FROM_SVC
+    cps #MODE_SYS
+    ldmia sp!, {r0-r5}
+    beq _svc_exit
+
+    cps #MODE_IRQ
+    mov r12, r4
+    mov lr, r5
+    pop {r4, r5}
+    movs pc, lr
+
+_svc_exit:
+    cps #MODE_SVC
+    mov r12, r4
+    mov lr, r5
+    pop {r4, r5}
+    cpsie i
+    movs pc, lr
+#endif
