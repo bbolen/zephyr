@@ -26,7 +26,9 @@
 
 #include <zephyr/types.h>
 #include <stdbool.h>
+#if defined(CONFIG_CPU_CORTEX_M)
 #include <arch/arm/aarch32/cortex_m/cmsis.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -167,6 +169,14 @@ static inline bool arch_is_user_context(void)
 {
 	uint32_t value;
 
+#if defined(CONFIG_CPU_CORTEX_R)
+	__asm__ volatile("mrs %0, CPSR\n\t" : "=r"(value));
+
+	/*
+	 * For R4, the mode bits (lower 5 bits) will be 0x10 for user mode.
+	 */
+	return ((value & 0x1f) == 0x10) ? true : false;
+#else
 	/* check for handler mode */
 	__asm__ volatile("mrs %0, IPSR\n\t" : "=r"(value));
 	if (value) {
@@ -176,6 +186,7 @@ static inline bool arch_is_user_context(void)
 	/* if not handler mode, return mode information */
 	__asm__ volatile("mrs %0, CONTROL\n\t" : "=r"(value));
 	return (value & CONTROL_nPRIV_Msk) ? true : false;
+#endif
 }
 
 #ifdef __cplusplus

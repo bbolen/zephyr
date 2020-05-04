@@ -83,9 +83,13 @@ void z_do_kernel_oops(const z_arch_esf_t *esf)
 	unsigned int reason = esf->basic.r0;
 
 #if defined(CONFIG_USERSPACE)
+#if defined(CONFIG_CPU_CORTEX_R)
+	if (arch_is_user_context()) {
+#else
 	if ((__get_CONTROL() & CONTROL_nPRIV_Msk) == CONTROL_nPRIV_Msk) {
+#endif
 		/*
-		 * Exception triggered from nPRIV mode.
+		 * Exception triggered from user mode.
 		 *
 		 * User mode is only allowed to induce oopses and stack check
 		 * failures via software-triggered system fatal exceptions.

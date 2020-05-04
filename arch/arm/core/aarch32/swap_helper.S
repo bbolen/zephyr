@@ -356,6 +356,14 @@ _thread_irq_disabled:
     /* restore r4-r11 and sp for incoming thread */
     cps #MODE_SYS
     ldm r0, {r4-r11, sp}
+#if defined (CONFIG_ARM_MPU)
+    /* Re-program dynamic memory map */
+    push {r2, lr}
+    ldr r0, =_kernel
+    ldr r0, [r0, #_kernel_offset_to_current]
+    bl z_arm_configure_dynamic_mpu_regions
+    pop {r2, lr}
+#endif
     cps #MODE_SVC
 #else
 #error Unknown ARM architecture
@@ -643,17 +651,22 @@ SECTION_FUNC(TEXT, z_arm_svc)
     beq demux
 
     ldr r1, [lr, #-2]
-    bic r1, #0xff00
+    and r1, #0xff
 
    /*
     * grab service call number:
     * 0: context switch
     * 1: irq_offload (if configured)
     * 2: kernel panic or oops (software generated fatal exception)
-    * Planned implementation of system calls for memory protection will
-    * expand this case.
+    * 3: system calls for memory protection
     */
 demux:
+
+#if defined(CONFIG_USERSPACE)
+    cmp r1, #_SVC_CALL_SYSTEM_CALL
+    beq _do_syscall
+#endif
+
     cmp r1, #_SVC_CALL_CONTEXT_SWITCH
     beq _context_switch
 
@@ -679,6 +692,107 @@ _oops:
     pop {r0, lr}
     cpsie i
     movs pc, lr
+
+#if defined(CONFIG_USERSPACE)
+    /*
+     * System call will setup a jump to the _do_arm_syscall function
+     * when the SVC returns via the bx lr.
+     *
+     * There is some trickery involved here because we have to preserve
+     * the original PC value so that we can return back to the caller of
+     * the SVC.
+     *
+     * On SVC exception, the USER/SYSTEM stack looks like the following:
+     *
+     * sp+0:   r0
+     * sp+4:   r1
+     * sp+8:   r2
+     * sp+12:  r3
+     * sp+16:  r12
+     * sp+20:  LR_svc (address of opcode just following SVC opcode )
+     *
+     * Registers look like:
+     * r0 - arg1
+     * r1 - arg2
+     * r2 - arg3
+     * r3 - arg4
+     * r4 - arg5
+     * r5 - arg6
+     * r6 - call_id
+     * r8 - saved link register
+     */
+_do_syscall:
+    /* validate syscall limit, only set priv mode if valid */
+    ldr ip, =K_SYSCALL_LIMIT
+    cmp r6, ip
+    blt valid_syscall_id
+
+    /* bad syscall id.  Set arg0 to bad id and set call_id to SYSCALL_BAD */
+    str r6, [r0, #0]
+    ldr r6, =K_SYSCALL_BAD
+
+valid_syscall_id:
+    push {r0, r1}
+    ldr r0, =_kernel
+    ldr r0, [r0, #_kernel_offset_to_current]
+    ldr r1, [r0, #_thread_offset_to_mode]
+    bic r1, #1
+    /* Store (privileged) mode in thread's mode state variable */
+    str r1, [r0, #_thread_offset_to_mode]
+    dsb
+
+    /* ISB is not strictly necessary here (stack pointer is not being
+     * touched), but it's recommended to avoid executing pre-fetched
+     * instructions with the previous privilege.
+     */
+    isb
+
+    /* restore r0,r1 from supervisor stack before changing to system mode. */
+    pop {r0, r1}
+
+    /*
+     * We need to store the spsr_svc onto the user stack before going off to
+     * the system call dispatcher.  This is needed since the system call may
+     * call _swap() which will invoke another SVC, overwriting this register.
+     */
+    mrs r0, spsr
+
+    /* Switch to system mode */
+    cps #MODE_SYS
+
+    /*
+     * save spsr_svc to the user stack to be restored after the system call
+     * completes
+     */
+    push {r0}
+
+    /*
+     * restore r0 and r1 from stack since we've used them above during demux
+     */
+    ldr r0, [sp, #4]
+    ldr r1, [sp, #8]
+
+    /*
+     * grab return address from USER/SYSTEM stack frame
+     * (just past the SVC opcode)
+     */
+    ldr r8, [sp, #24]
+
+    /*
+     * User stack left with:
+     *
+     * sp+0:  spsr_svc
+     * sp+4:  r0
+     * sp+8:  r1
+     * sp+12: r2
+     * sp+16: r3
+     * sp+20: r12
+     * sp+24: LR_svc (address of opcode just following SVC opcode )
+     */
+
+    /* branch to _arm_do_syscall.  We will not return here. */
+    b z_arm_do_syscall
+#endif
 
 GTEXT(z_arm_cortex_r_svc)
 SECTION_FUNC(TEXT, z_arm_cortex_r_svc)
