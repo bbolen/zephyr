@@ -655,8 +655,13 @@ dispatch_syscall:
     mov r2, #0
     mov r3, #0
 
-    /* return from SVC state to user state */
-    movs pc, lr
+    /*
+     * return from SVC state to user state.  SRSDB was used to save state
+     * in swap_helper.S.  Change to sys mode so that we can recover those
+     * those values from the user stack
+     */
+    cps #MODE_SYS
+    rfeia sp!
 #else
     bx ip
 #endif
