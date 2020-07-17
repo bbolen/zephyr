@@ -770,6 +770,17 @@ valid_syscall_id:
     push {r0}
 
     /*
+     * Restore the nested level.  The thread that is doing the system call may
+     * be put to sleep, as in the case of waiting in k_msgq_get() with
+     * K_FOREVER, so we don't want the nesting level to be elevated during
+     * that complete time.
+     */
+    ldr r2, =_kernel
+    ldr r1, [r2, #_kernel_offset_to_nested]
+    sub r1, r1, #1
+    str r1, [r2, #_kernel_offset_to_nested]
+
+    /*
      * restore r0-r3 from stack since we've used them above during demux
      */
     ldr r0, [sp, #4]
