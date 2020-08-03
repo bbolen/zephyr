@@ -748,7 +748,10 @@ valid_syscall_id:
     isb
 
     /* restore r0,r1 from supervisor stack before changing to system mode. */
-    pop {r0, r1}
+    pop {r0, r1}  /* saved just after valid_syscall_id */
+    pop {r2, r3}  /* saved just after z_arm_svc */
+
+    add sp,sp,r3 /* un-do stack pointer alignment to double-word boundary */
 
     /*
      * We need to store the spsr_svc onto the user stack before going off to
@@ -767,10 +770,12 @@ valid_syscall_id:
     push {r0}
 
     /*
-     * restore r0 and r1 from stack since we've used them above during demux
+     * restore r0-r3 from stack since we've used them above during demux
      */
     ldr r0, [sp, #4]
     ldr r1, [sp, #8]
+    ldr r2, [sp, #12]
+    ldr r3, [sp, #16]
 
     /*
      * grab return address from USER/SYSTEM stack frame
