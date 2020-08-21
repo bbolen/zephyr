@@ -203,6 +203,8 @@ static inline int mpu_buffer_validate(void *addr, size_t size, int write)
 {
 	int32_t r_index;
 
+	int key = arch_irq_lock();
+
 	/* Iterate all mpu regions in reversed order */
 	for (r_index = get_num_regions() - 1U; r_index >= 0;  r_index--) {
 		if (!is_enabled_region(r_index) ||
@@ -216,14 +218,16 @@ static inline int mpu_buffer_validate(void *addr, size_t size, int write)
 		 * matched region that grants permission or denies access.
 		 */
 		if (is_user_accessible_region(r_index, write)) {
-			return 0;
+			r_index = 0;
 		} else {
-			return -EPERM;
+			r_index = -EPERM;
 		}
+		arch_irq_unlock(key);
+		return r_index;
 	}
 
+	arch_irq_unlock(key);
 	return -EPERM;
-
 }
 
 #endif /* CONFIG_USERSPACE */
