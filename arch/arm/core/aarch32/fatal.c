@@ -22,7 +22,7 @@ static void esf_dump(const z_arch_esf_t *esf)
 		esf->basic.a1, esf->basic.a2, esf->basic.a3);
 	LOG_ERR("r3/a4:  0x%08x r12/ip:  0x%08x r14/lr:  0x%08x",
 		esf->basic.a4, esf->basic.ip, esf->basic.lr);
-	LOG_ERR(" xpsr:  0x%08x", esf->basic.xpsr);
+	LOG_ERR(" xpsr:  0x%08x", esf->return_state.xpsr);
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 	for (int i = 0; i < 16; i += 4) {
 		LOG_ERR("s[%2d]:  0x%08x  s[%2d]:  0x%08x"
@@ -35,7 +35,7 @@ static void esf_dump(const z_arch_esf_t *esf)
 	LOG_ERR("fpscr:  0x%08x", esf->fpscr);
 #endif
 	LOG_ERR("Faulting instruction address (r15/pc): 0x%08x",
-		esf->basic.pc);
+		esf->return_state.pc);
 }
 
 void z_arm_fatal_error(unsigned int reason, const z_arch_esf_t *esf)
@@ -92,7 +92,7 @@ FUNC_NORETURN void arch_syscall_oops(void *ssf_ptr)
 	z_arch_esf_t oops_esf = { 0 };
 
 	/* TODO: Copy the rest of the register set out of ssf_ptr */
-	oops_esf.basic.pc = ssf_contents[3];
+	oops_esf.return_state.pc = ssf_contents[3];
 
 	z_arm_fatal_error(K_ERR_KERNEL_OOPS, &oops_esf);
 	CODE_UNREACHABLE;

@@ -46,6 +46,7 @@ extern "C" {
 
 typedef struct __esf _esf_t;
 typedef struct __basic_sf _basic_sf_t;
+typedef struct __return_sf _return_sf_t;
 
 #ifdef __cplusplus
 }

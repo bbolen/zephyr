@@ -101,21 +101,21 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	 * performed yet for this thread.
 	 */
 	pInitCtx = (struct __esf *)(Z_STACK_PTR_ALIGN(stackEnd -
-		(char *)top_of_stack_offset - sizeof(struct __basic_sf)));
+		(char *)top_of_stack_offset - sizeof(struct __basic_sf) - sizeof(struct __return_sf)));
 
 #if defined(CONFIG_USERSPACE)
 	if ((options & K_USER) != 0) {
-		pInitCtx->basic.pc = (u32_t)arch_user_mode_enter;
+		pInitCtx->return_state.pc = (u32_t)arch_user_mode_enter;
 	} else {
-		pInitCtx->basic.pc = (u32_t)z_thread_entry;
+		pInitCtx->return_state.pc = (u32_t)z_thread_entry;
 	}
 #else
-	pInitCtx->basic.pc = (u32_t)z_thread_entry;
+	pInitCtx->return_state.pc = (u32_t)z_thread_entry;
 #endif
 
 #if defined(CONFIG_CPU_CORTEX_M)
 	/* force ARM mode by clearing LSB of address */
-	pInitCtx->basic.pc &= 0xfffffffe;
+	pInitCtx->return_state.pc &= 0xfffffffe;
 #endif
 
 	pInitCtx->basic.a1 = (u32_t)pEntry;
@@ -124,12 +124,12 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	pInitCtx->basic.a4 = (u32_t)parameter3;
 
 #if defined(CONFIG_CPU_CORTEX_M)
-	pInitCtx->basic.xpsr =
+	pInitCtx->return_state.xpsr =
 		0x01000000UL; /* clear all, thumb bit is 1, even if RO */
 #else
-	pInitCtx->basic.xpsr = A_BIT | MODE_SYS;
+	pInitCtx->return_state.xpsr = A_BIT | MODE_SYS;
 #if defined(CONFIG_COMPILER_ISA_THUMB2)
-	pInitCtx->basic.xpsr |= T_BIT;
+	pInitCtx->return_state.xpsr |= T_BIT;
 #endif /* CONFIG_COMPILER_ISA_THUMB2 */
 #endif /* CONFIG_CPU_CORTEX_M */
 

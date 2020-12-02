@@ -81,9 +81,11 @@ struct __esf {
 		sys_define_gpr_with_alias(a4, r3);
 		sys_define_gpr_with_alias(ip, r12);
 		sys_define_gpr_with_alias(lr, r14);
+	} basic;
+	struct __return_sf {
 		sys_define_gpr_with_alias(pc, r15);
 		u32_t xpsr;
-	} basic;
+	} return_state;
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 	float s[16];
 	u32_t fpscr;

@@ -46,8 +46,8 @@ GEN_OFFSET_SYM(_basic_sf_t, a3);
 GEN_OFFSET_SYM(_basic_sf_t, a4);
 GEN_OFFSET_SYM(_basic_sf_t, ip);
 GEN_OFFSET_SYM(_basic_sf_t, lr);
-GEN_OFFSET_SYM(_basic_sf_t, pc);
-GEN_OFFSET_SYM(_basic_sf_t, xpsr);
+GEN_OFFSET_SYM(_return_sf_t, pc);
+GEN_OFFSET_SYM(_return_sf_t, xpsr);
 
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 GEN_OFFSET_SYM(_esf_t, s);
