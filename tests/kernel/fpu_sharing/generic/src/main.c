@@ -23,6 +23,7 @@
 
 extern void test_load_store(void);
 extern void test_pi(void);
+extern void test_pi_interrupt(void);
 
 void test_main(void)
 {
@@ -37,6 +38,7 @@ void test_main(void)
 	/* Run the testsuite */
 	ztest_test_suite(fpu_sharing,
 			 ztest_unit_test(test_load_store),
-			 ztest_unit_test(test_pi));
+			 ztest_unit_test(test_pi),
+			 ztest_unit_test(test_pi_interrupt));
 	ztest_run_test_suite(fpu_sharing);
 }

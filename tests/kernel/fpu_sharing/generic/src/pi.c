@@ -166,6 +166,12 @@ K_THREAD_DEFINE(pi_low, THREAD_STACK_SIZE, calculate_pi_low, NULL, NULL, NULL,
 K_THREAD_DEFINE(pi_high, THREAD_STACK_SIZE, calculate_pi_high, NULL, NULL, NULL,
 		THREAD_HIGH_PRIORITY, THREAD_FP_FLAGS, K_TICKS_FOREVER);
 
+K_THREAD_DEFINE(pi_low_int, THREAD_STACK_SIZE, calculate_pi_low, NULL, NULL, NULL,
+		THREAD_LOW_PRIORITY, THREAD_FP_FLAGS, K_TICKS_FOREVER);
+
+K_THREAD_DEFINE(pi_high_int, THREAD_STACK_SIZE, calculate_pi_high, NULL, NULL, NULL,
+		THREAD_HIGH_PRIORITY, THREAD_FP_FLAGS, K_TICKS_FOREVER);
+
 void test_pi(void)
 {
 	/* Initialise test states */
@@ -178,4 +184,49 @@ void test_pi(void)
 
 	/* Wait for test threads to exit */
 	k_sem_take(&test_exit_sem, K_FOREVER);
+}
+
+static bool pi_timer_test_exited = false;
+
+void pi_timer_handler(struct k_timer *dummy) {
+	static uint32_t itr = 0;
+	static volatile float timer_pi = 1.0;
+	static float divisor = 3.0f;
+	static float sign = -1.0f;
+
+	timer_pi += sign / divisor;
+	divisor += 2.0f;
+	sign *= -1.0f;
+
+	if ((itr++ % 2000) == 0) {
+		printf("Timer pi calc[%d]: %f\n", itr, timer_pi * 4.0f);
+	}
+
+	if (itr > PI_NUM_ITERATIONS) {
+		pi_timer_test_exited = true;
+	}
+}
+
+K_TIMER_DEFINE(pi_timer, pi_timer_handler, NULL);
+
+void test_pi_interrupt(void)
+{
+	/* Initialise test states */
+	test_exited = false;
+	k_sem_reset(&test_exit_sem);
+
+	/* Start test threads */
+	k_thread_start(pi_low_int);
+	k_thread_start(pi_high_int);
+
+	k_timer_start(&pi_timer, K_SECONDS(1), K_MSEC(1));
+
+	/* Wait for test threads to exit */
+	k_sem_take(&test_exit_sem, K_FOREVER);
+
+	while (!pi_timer_test_exited) {
+		k_sleep(K_SECONDS(1));
+	}
+
+	k_timer_stop(&pi_timer);
 }
