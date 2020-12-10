@@ -101,9 +101,84 @@ static void dump_callee_saved_registers(const _callee_saved_t *cs)
  *
  * @return Returns true if the fault is fatal
  */
+#if defined(CONFIG_FPU_SHARING)
+bool z_arm_fault_undef_instruction_fp(z_arch_esf_t *esf)
+{
+	/*
+	 * Assume this is a floating point instruction that faulted because
+	 * the FP unit was disabled.  Enable the FP unit and try again.  If
+	 * the FP was already enabled then this was an actual undefined
+	 * instruction.
+	 */
+	if (__get_FPEXC() & FPEXC_EN) {
+		return true;
+	}
+
+	__set_FPEXC(FPEXC_EN);
+
+	if (_kernel.cpus[0].nested > 1) {
+		/*
+		 * If the nested count is greater than 1, the undefined instruction
+		 * exception came from an irq/svc context.  (The irq/svc handler
+		 * would have the nested count at 1 and then the undef exception
+		 * would increment it to 2).
+		 */
+		z_arch_esf_t *spill_esf = (z_arch_esf_t *)_kernel.cpus[0].fp_ctx;
+
+		_kernel.cpus[0].fp_ctx = NULL;
+
+		/*
+		 * If the nested count is 2 and the current thread has used the VFP
+		 * (whether or not it was actually using the VFP before the current
+		 * exception) OR if the nested count is greater than 2 and the VFP
+		 * was enabled on the irq/svc entrance for the saved exception stack
+		 * frame, then save the floating point context because it is about
+		 * to be overwritten.
+		 */
+		if (((_kernel.cpus[0].nested == 2)
+					&& (_current->base.user_options & K_FP_REGS))
+				|| ((_kernel.cpus[0].nested > 2)
+					&& (spill_esf->undefined & FPEXC_EN))) {
+			/* Spill VFP registers to specified exception stack frame */
+			spill_esf->undefined |= FPEXC_EN;
+			spill_esf->fpscr = __get_FPSCR();
+			__asm__ volatile (
+				"vstmia %0, {s0-s15};\n"
+				: : "r" (&spill_esf->s[0])
+				: "memory"
+				);
+		}
+	} else {
+		/*
+		 * If the nested count is one, a thread was the faulting
+		 * context.  Just flag that this thread uses the VFP.  This
+		 * means that a thread that uses the VFP does not have to,
+		 * but should, set K_FP_REGS on thread creation.
+		 */
+		_current->base.user_options |= K_FP_REGS;
+	}
+
+	return false;
+}
+#endif
+
 bool z_arm_fault_undef_instruction(z_arch_esf_t *esf,
 		const _callee_saved_t *exc_cs)
 {
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * This is a true undefined instruction and we will be crashing
+	 * so save away the VFP registers.
+	 */
+	esf->undefined = __get_FPEXC();
+	esf->fpscr = __get_FPSCR();
+	__asm__ volatile (
+		"vstmia %0, {s0-s15};\n"
+		: : "r" (&esf->s[0])
+		: "memory"
+		);
+#endif
+
 	/* Print fault information */
 	LOG_ERR("***** UNDEFINED INSTRUCTION ABORT *****");
 

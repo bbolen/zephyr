@@ -26,6 +26,9 @@ GEN_ABS_SYM_BEGIN(_OffsetAbsSyms)
 GEN_OFFSET_SYM(_cpu_t, current);
 GEN_OFFSET_SYM(_cpu_t, nested);
 GEN_OFFSET_SYM(_cpu_t, irq_stack);
+#if defined(CONFIG_FPU_SHARING)
+GEN_OFFSET_SYM(_cpu_t, fp_ctx);
+#endif
 
 #if defined(CONFIG_THREAD_MONITOR)
 GEN_OFFSET_SYM(_kernel_t, threads);

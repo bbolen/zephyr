@@ -54,7 +54,33 @@ SECTION_FUNC(TEXT, _isr_wrapper)
 	sub lr, lr, #4
 	srsdb #MODE_SYS!
 	cps #MODE_SYS
+#if defined(CONFIG_FPU_SHARING)
+	sub sp, sp, #FPU_FRAME_SIZE
+#endif
 	push {r0-r3, r12, lr}
+
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * Note that this handler was entered with the VFP unit enabled.
+	 * The undefined instruction handler uses this to know that it
+	 * needs to save the current floating context.
+	 */
+	vmrs r0, fpexc
+	str r0, [sp, #92]
+
+	/* Disable VFP */
+	mov r0, #0
+	vmsr fpexc, r0
+
+	/*
+	 * Mark where to store the floating context for the undefined
+	 * instruction handler
+	 */
+	ldr r2, =_kernel
+	ldr r0, [r2, #_kernel_offset_to_fp_ctx]
+	cmp r0, #0
+	streq sp, [r2, #_kernel_offset_to_fp_ctx]
+#endif /* CONFIG_FPU_SHARING */
 
 	/*
 	 * Use SVC mode stack for predictable interrupt behaviour; running ISRs

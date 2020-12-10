@@ -122,6 +122,10 @@ struct _cpu {
 	int slice_ticks;
 #endif
 
+#if defined(CONFIG_FPU_SHARING)
+	void *fp_ctx;
+#endif
+
 	u8_t id;
 
 #ifdef CONFIG_SMP

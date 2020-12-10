@@ -90,7 +90,47 @@ __EXIT_INT:
 	 * out or they are the args to _new_thread for a new thread.
 	 */
 	cps #MODE_SYS
+
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * If the floating point context pointer is null, then a context was
+	 * saved so restore the float context from the exception stack frame.
+	 */
+	ldr r2, =_kernel
+	ldr r1, [r2, #_kernel_offset_to_fp_ctx]
+	cmp r1, #0
+	beq vfp_restore
+
+	/*
+	 * If leaving the last interrupt context, remove the floating point
+	 * context pointer.
+	 */
+	cmp r0, #0
+	moveq r1, #0
+	streq r1, [r2, #_kernel_offset_to_fp_ctx]
+	b vfp_exit
+
+vfp_restore:
+	add r3, sp, #88
+	ldm r3, {r1, r2}
+	tst r2, #FPEXC_EN
+	beq vfp_exit
+
+	vmsr fpexc, r2
+	vmsr fpscr, r1
+	add r3, sp, #24
+	vldmia r3, {s0-s15}
+
+vfp_exit:
+	/* Leave the VFP disabled when leaving */
+	mov r1, #0
+	vmsr fpexc, r1
+#endif
+
 	pop {r0-r3, r12, lr}
+#if defined(CONFIG_FPU_SHARING)
+	add sp, sp, #FPU_FRAME_SIZE
+#endif
 	rfeia sp!
 
 /**
@@ -142,6 +182,9 @@ SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, z_arm_exc_exit)
 	/* Return to the switched thread */
 	cps #MODE_SYS
 	pop {r0-r3, r12, lr}
+#if defined(CONFIG_FPU_SHARING)
+	add sp, sp, #FPU_FRAME_SIZE
+#endif
 	rfeia sp!
 
 __EXIT_EXC:
@@ -156,4 +199,7 @@ __EXIT_EXC:
 	 */
 	ldmia sp, {r0-r3, r12, lr}^
 	add sp, #24
+#if defined(CONFIG_FPU_SHARING)
+	add sp, sp, #FPU_FRAME_SIZE
+#endif
 	rfeia sp!

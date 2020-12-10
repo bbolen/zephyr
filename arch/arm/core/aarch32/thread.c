@@ -94,6 +94,12 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 
 	z_new_thread_init(thread, pStackMem, stackSize);
 
+#if defined(CONFIG_CPU_CORTEX_R) && defined(CONFIG_FPU_SHARING)
+	pInitCtx = (struct __esf *)(Z_STACK_PTR_ALIGN(stackEnd -
+		(char *)top_of_stack_offset - sizeof(struct __esf)));
+
+	memset(pInitCtx, 0, sizeof(struct __esf));
+#else
 	/* Carve the thread entry struct from the "base" of the stack
 	 *
 	 * The initial carved stack frame only needs to contain the basic
@@ -102,6 +108,7 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	 */
 	pInitCtx = (struct __esf *)(Z_STACK_PTR_ALIGN(stackEnd -
 		(char *)top_of_stack_offset - sizeof(struct __basic_sf) - sizeof(struct __return_sf)));
+#endif
 
 #if defined(CONFIG_USERSPACE)
 	if ((options & K_USER) != 0) {
@@ -355,7 +362,11 @@ int arch_float_disable(struct k_thread *thread)
 
 	thread->base.user_options &= ~K_FP_REGS;
 
+#if defined(CONFIG_CPU_CORTEX_M)
 	__set_CONTROL(__get_CONTROL() & (~CONTROL_FPCA_Msk));
+#else
+	__set_FPEXC(0);
+#endif
 
 	/* No need to add an ISB barrier after setting the CONTROL
 	 * register; arch_irq_unlock() already adds one.
@@ -378,7 +389,7 @@ void arch_switch_to_main_thread(struct k_thread *main_thread,
 	 * initialized at thread creation for threads that make use of the FP).
 	 */
 	__set_FPSCR(0);
-#if defined(CONFIG_FPU_SHARING)
+#if defined(CONFIG_CPU_CORTEX_M) && defined(CONFIG_FPU_SHARING)
 	/* In Sharing mode clearing FPSCR may set the CONTROL.FPCA flag. */
 	__set_CONTROL(__get_CONTROL() & (~(CONTROL_FPCA_Msk)));
 	__ISB();

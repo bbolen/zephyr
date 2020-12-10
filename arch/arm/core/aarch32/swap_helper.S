@@ -19,6 +19,7 @@
 #include <offsets_short.h>
 #include <arch/cpu.h>
 #include <syscall.h>
+#include <kernel.h>
 
 _ASM_FILE_PROLOGUE
 
@@ -114,6 +115,46 @@ out_fp_endif:
     cps #MODE_SYS
     stm r0, {r4-r11, sp}
     cps #MODE_SVC
+
+#if defined(CONFIG_FPU_SHARING)
+    ldrb r0, [r2, #_thread_offset_to_user_options]
+    tst r0, #K_FP_REGS /* _current->base.user_options & K_FP_REGS */
+    beq out_fp_inactive
+
+    mov ip, #FPEXC_EN
+    vmsr fpexc, ip
+
+    /*
+     * If the float context pointer is not null, then the VFP has not been
+     * used since this thread has used it.  Consequently, the caller-saved
+     * float registers have not been saved away, so write them to the
+     * exception stack frame.
+     */
+    ldr r0, [r1, #_kernel_offset_to_fp_ctx]
+    cmp r0, #0
+    beq out_store_thread_context
+
+    add r0, r0, #24
+    vstmia r0!, {s0-s15}
+    vmrs r3, fpscr
+    stm r0, {r3, ip}
+
+out_store_thread_context:
+    /* Store s16-s31 to thread context */
+    add r0, r2, #_thread_offset_to_preempt_float
+    vstmia r0, {s16-s31}
+
+    mov ip, #0
+    vmsr fpexc, ip
+
+out_fp_inactive:
+    /*
+     * The floating context has now been saved to the exception stack
+     * frame, so zero out the global pointer to note this.
+     */
+    mov r0, #0
+    str r0, [r1, #_kernel_offset_to_fp_ctx]
+#endif /* CONFIG_FPU_SHARING */
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -321,6 +362,25 @@ _thread_irq_disabled:
     cps #MODE_SYS
     ldm r0, {r4-r11, sp}
     cps #MODE_SVC
+
+#if defined(CONFIG_FPU_SHARING)
+    ldrb r0, [r2, #_thread_offset_to_user_options]
+    tst r0, #K_FP_REGS /* _current->base.user_options & K_FP_REGS */
+    beq in_fp_inactive
+
+    mov r3, #FPEXC_EN
+    vmsr fpexc, r3
+
+    /* Restore s16-s31 from thread context */
+    add r0, r2, #_thread_offset_to_preempt_float
+    vldmia r0, {s16-s31}
+
+    mov r3, #0
+    vmsr fpexc, r3
+
+in_fp_inactive:
+#endif /* CONFIG_FPU_SHARING */
+
 #else
 #error Unknown ARM architecture
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
@@ -590,7 +650,34 @@ SECTION_FUNC(TEXT, z_arm_svc)
      */
     srsdb #MODE_SYS!
     cps #MODE_SYS
+#if defined(CONFIG_FPU_SHARING)
+    sub sp, sp, #FPU_FRAME_SIZE
+#endif
     push {r0-r3, r12, lr}
+
+#if defined(CONFIG_FPU_SHARING)
+    /*
+     * Note that this handler was entered with the VFP unit enabled.
+     * The undefined instruction handler uses this to know that it
+     * needs to save the current floating context.
+     */
+    vmrs r0, fpexc
+    str r0, [sp, #24 + FPU_FRAME_SIZE - 4]
+
+    /* Disable VFP */
+    mov r0, #0
+    vmsr fpexc, r0
+
+    /*
+     * Mark where to store the floating context for the undefined
+     * instruction handler
+     */
+    ldr r2, =_kernel
+    ldr r0, [r2, #_kernel_offset_to_fp_ctx]
+    cmp r0, #0
+    streq sp, [r2, #_kernel_offset_to_fp_ctx]
+#endif /* CONFIG_FPU_SHARING */
+
     cps #MODE_SVC
 
     /* Align stack at double-word boundary */

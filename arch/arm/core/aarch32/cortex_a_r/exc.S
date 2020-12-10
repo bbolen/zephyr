@@ -31,6 +31,9 @@
 _ASM_FILE_PROLOGUE
 
 GTEXT(z_arm_fault_undef_instruction)
+#if defined(CONFIG_FPU_SHARING)
+GTEXT(z_arm_fault_undef_instruction_fp)
+#endif
 GTEXT(z_arm_fault_prefetch)
 GTEXT(z_arm_fault_data)
 
@@ -62,6 +65,9 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_undef_instruction)
 	 * construct an exception stack frame.
 	 */
 	srsdb sp!, #MODE_UND
+#if defined(CONFIG_FPU_SHARING)
+	sub sp, #FPU_FRAME_SIZE
+#endif
 	stmfd sp, {r0-r3, r12, lr}^
 	sub sp, #24
 
@@ -73,6 +79,15 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_undef_instruction)
 
 	/* save esf pointer */
 	mov r0, sp
+
+#if defined(CONFIG_FPU_SHARING)
+	bl z_arm_fault_undef_instruction_fp
+	cmp r0, #0
+	beq z_arm_exc_exit
+
+	/* Restore r0 to the esf pointer for the next undef handler */
+	mov r0, sp
+#endif
 
 	sub r1, sp, #36
 	cps #MODE_SYS
@@ -105,8 +120,22 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_prefetch_abort)
 	 * construct an exception stack frame.
 	 */
 	srsdb sp!, #MODE_ABT
+#if defined(CONFIG_FPU_SHARING)
+	sub sp, #FPU_FRAME_SIZE
+#endif
 	stmfd sp, {r0-r3, r12, lr}^
 	sub sp, #24
+
+#if defined(CONFIG_FPU_SHARING)
+	vmrs r1, fpexc
+	mov r0, #FPEXC_EN
+	vmsr fpexc, r0
+	vmrs r0, fpscr
+
+	add r2, sp, #24
+	vstmia r2!, {s0-s15}
+	stm r2, {r0, r1}
+#endif
 
 	/* Increment exception nesting count */
 	ldr r2, =_kernel
@@ -149,8 +178,22 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_data_abort)
 	 * construct an exception stack frame.
 	 */
 	srsdb sp!, #MODE_ABT
+#if defined(CONFIG_FPU_SHARING)
+	sub sp, #FPU_FRAME_SIZE
+#endif
 	stmfd sp, {r0-r3, r12, lr}^
 	sub sp, #24
+
+#if defined(CONFIG_FPU_SHARING)
+	vmrs r1, fpexc
+	mov r0, #FPEXC_EN
+	vmsr fpexc, r0
+	vmrs r0, fpscr
+
+	add r2, sp, #24
+	vstmia r2!, {s0-s15}
+	stm r2, {r0, r1}
+#endif
 
 	/* Increment exception nesting count */
 	ldr r2, =_kernel

@@ -66,6 +66,13 @@
 
 #ifdef _ASMLANGUAGE
 GTEXT(z_arm_exc_exit);
+
+#if defined(CONFIG_FPU_SHARING)
+#define FPU_FRAME_SIZE	72
+#else
+#define FPU_FRAME_SIZE	0
+#endif
+
 #else
 #include <zephyr/types.h>
 
@@ -82,15 +89,15 @@ struct __esf {
 		sys_define_gpr_with_alias(ip, r12);
 		sys_define_gpr_with_alias(lr, r14);
 	} basic;
-	struct __return_sf {
-		sys_define_gpr_with_alias(pc, r15);
-		u32_t xpsr;
-	} return_state;
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 	float s[16];
 	u32_t fpscr;
 	u32_t undefined;
 #endif
+	struct __return_sf {
+		sys_define_gpr_with_alias(pc, r15);
+		u32_t xpsr;
+	} return_state;
 };
 
 typedef struct __esf z_arch_esf_t;
