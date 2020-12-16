@@ -85,15 +85,29 @@ static void dump_fault(u32_t status, u32_t addr)
 }
 #endif
 
+static void dump_callee_saved_registers(const _callee_saved_t *cs)
+{
+	LOG_ERR(" r4: 0x%08x  r5:  0x%08x  r6:  %08x",
+			cs->v1, cs->v2, cs->v3);
+	LOG_ERR(" r7: 0x%08x  r8:  0x%08x  r9:  %08x",
+			cs->v4, cs->v5, cs->v6);
+	LOG_ERR("r10: 0x%08x r11:  0x%08x psp:  %08x",
+			cs->v7, cs->v8, cs->psp);
+}
+
+
 /**
  * @brief Undefined instruction fault handler
  *
  * @return Returns true if the fault is fatal
  */
-bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
+bool z_arm_fault_undef_instruction(z_arch_esf_t *esf,
+		const _callee_saved_t *exc_cs)
 {
 	/* Print fault information */
 	LOG_ERR("***** UNDEFINED INSTRUCTION ABORT *****");
+
+	dump_callee_saved_registers(exc_cs);
 
 	/* Invoke kernel fatal exception handler */
 	z_arm_fatal_error(K_ERR_CPU_EXCEPTION, esf);
@@ -107,7 +121,7 @@ bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
  *
  * @return Returns true if the fault is fatal
  */
-bool z_arm_fault_prefetch(z_arch_esf_t *esf)
+bool z_arm_fault_prefetch(z_arch_esf_t *esf, const _callee_saved_t *exc_cs)
 {
 	/* Read and parse Instruction Fault Status Register (IFSR) */
 	u32_t ifsr = __get_IFSR();
@@ -122,6 +136,8 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 		dump_fault(fs, ifar);
 	}
 
+	dump_callee_saved_registers(exc_cs);
+
 	/* Invoke kernel fatal exception handler */
 	z_arm_fatal_error(K_ERR_CPU_EXCEPTION, esf);
 
@@ -134,7 +150,7 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
  *
  * @return Returns true if the fault is fatal
  */
-bool z_arm_fault_data(z_arch_esf_t *esf)
+bool z_arm_fault_data(z_arch_esf_t *esf, const _callee_saved_t *exc_cs)
 {
 	/* Read and parse Data Fault Status Register (DFSR) */
 	u32_t dfsr = __get_DFSR();
@@ -148,6 +164,8 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 	if (FAULT_DUMP_VERBOSE) {
 		dump_fault(fs, dfar);
 	}
+
+	dump_callee_saved_registers(exc_cs);
 
 	/* Invoke kernel fatal exception handler */
 	z_arm_fatal_error(K_ERR_CPU_EXCEPTION, esf);

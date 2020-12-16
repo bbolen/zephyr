@@ -71,11 +71,20 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_undef_instruction)
 	add r0, r0, #1
 	str r0, [r2, #_kernel_offset_to_nested]
 
-	/* Invoke fault handler */
+	/* save esf pointer */
 	mov r0, sp
+
+	sub r1, sp, #36
+	cps #MODE_SYS
+	stm r1, {r4-r11, sp}
+	cps #MODE_UND
+	mov sp, r1
+
+	/* Invoke fault handler */
 	bl z_arm_fault_undef_instruction
 
 	/* Exit exception */
+	add sp, sp, #36
 	b z_arm_exc_exit
 
 /**
@@ -105,11 +114,20 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_prefetch_abort)
 	add r0, r0, #1
 	str r0, [r2, #_kernel_offset_to_nested]
 
-	/* Invoke fault handler */
+	/* save esf pointer */
 	mov r0, sp
+
+	sub r1, sp, #36
+	cps #MODE_SYS
+	stm r1, {r4-r11, sp}
+	cps #MODE_ABT
+	mov sp, r1
+
+	/* Invoke fault handler */
 	bl z_arm_fault_prefetch
 
 	/* Exit exception */
+	add sp, sp, #36
 	b z_arm_exc_exit
 
 /**
@@ -140,9 +158,18 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_data_abort)
 	add r0, r0, #1
 	str r0, [r2, #_kernel_offset_to_nested]
 
-	/* Invoke fault handler */
+	/* save esf pointer */
 	mov r0, sp
+
+	sub r1, sp, #36
+	cps #MODE_SYS
+	stm r1, {r4-r11, sp}
+	cps #MODE_ABT
+	mov sp, r1
+
+	/* Invoke fault handler */
 	bl z_arm_fault_data
 
 	/* Exit exception */
+	add sp, sp, #36
 	b z_arm_exc_exit
