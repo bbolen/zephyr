@@ -52,6 +52,9 @@ config ARMV7_R_FP
 	  This option signifies the use of an ARMv7-R processor
 	  implementation supporting the Floating-Point Extension.
 
+config ISR_STACK_SIZE
+	default 64
+
 config ARMV7_EXCEPTION_STACK_SIZE
 	int "Undefined Instruction and Abort stack size (in bytes)"
 	default 256
